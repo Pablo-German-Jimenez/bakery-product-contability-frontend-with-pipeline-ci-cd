@@ -2,35 +2,31 @@ import { useState, useEffect } from "react";
 import ModalNuevoProducto from "./components/ModalNuevoProducto.jsx";
 import ModalConfirmacion from "./components/ModalConfirmacion.jsx";
 import HistorialVentas from "./components/HistorialVentas.jsx";
+import IAgente from "./components/IAgente.jsx";
 import "./components/styles/PanelStyles.css";
 
 const PRODUCTOS_INICIALES = [
   {
-    id: "1",
     nombre: "Facturas",
     precio: 400,
     tipo: "unidad",
     variedades: [
       {
-        id: "f1",
         nombre: "Factura con crema",
         precio: 450,
         img: "/facturaConCrema.png",
       },
       {
-        id: "f2",
         nombre: "Medialuna",
         precio: 400,
         img: "/mediaLuna.png",
       },
       {
-        id: "f3",
         nombre: "Con Dulce de Leche",
         precio: 450,
         img: "/conDulceDeLeche.png",
       },
       {
-        id: "f4",
         nombre: "Sacramento",
         precio: 450,
         img: "/sacramentos.png",
@@ -38,37 +34,31 @@ const PRODUCTOS_INICIALES = [
     ],
   },
   {
-    id: "2",
     nombre: "Tortillas",
     precio: 150,
     tipo: "unidad",
     variedades: [
       {
-        id: "t1",
         nombre: "Tortilla Finita",
         precio: 150,
         img: "tortillasFinitas.png",
       },
       {
-        id: "t2",
         nombre: "Tortilla Gruesa",
         precio: 200,
         img: "tortillasGruesas.png",
       },
       {
-        id: "t3",
         nombre: "Bollitos",
         precio: 120,
         img: "bollitos.png",
       },
-       {
-        id: "t4",
+      {
         nombre: "Cremonas",
         precio: 120,
         img: "cremonas.png",
       },
       {
-        id: "t4",
         nombre: "Cuernitos",
         precio: 120,
         img: "cuernitos.png",
@@ -76,25 +66,21 @@ const PRODUCTOS_INICIALES = [
     ],
   },
   {
-    id: "3",
     nombre: "Pan",
     precio: 3000,
     tipo: "dinero",
     variedades: [
       {
-        id: "p1",
         nombre: "Pan Francés",
         precio: 3000,
         img: "panFrances.png",
       },
       {
-        id: "p2",
         nombre: "Pan Mignon",
         precio: 3200,
         img: "panMignon.png",
       },
       {
-        id: "p3",
         nombre: "Pan Sanguchero",
         precio: 3000,
         img: "panFrances.png",
@@ -102,13 +88,27 @@ const PRODUCTOS_INICIALES = [
     ],
   },
   {
-    id: "4",
     nombre: "Chipá",
     precio: 250,
     tipo: "unidad",
     variedades: [],
   },
 ];
+
+//Recorremos y agregamos tempId automáticamente a todo
+const productosConId=PRODUCTOS_INICIALES.map(producto=>({
+  ...producto,
+ 
+  tempId: crypto.randomUUID(),
+  variedades: (producto.variedades||[]).map(variedad=>({
+    ...variedad,
+    tempId:crypto.randomUUID()
+  }))
+})
+
+)
+
+console.log(productosConId)
 
 export default function App() {
   const [productos, setProductos] = useState(() => {
@@ -161,7 +161,7 @@ export default function App() {
 
   const cambiarPrecioProducto = (id, nuevoPrecio) => {
     setProductos(
-      productos.map((p) => (p.id === id ? { ...p, precio: nuevoPrecio } : p))
+      productos.map((p) => (p.id === id ? { ...p, precio: nuevoPrecio } : p)),
     );
   };
 
@@ -172,12 +172,12 @@ export default function App() {
           return {
             ...prod,
             variedades: prod.variedades.map((v) =>
-              v.id === variedadId ? { ...v, precio: nuevoPrecio } : v
+              v.id === variedadId ? { ...v, precio: nuevoPrecio } : v,
             ),
           };
         }
         return prod;
-      })
+      }),
     );
 
     if (variedadSeleccionada && variedadSeleccionada.id === variedadId) {
@@ -205,7 +205,7 @@ export default function App() {
           return { ...prod, variedades: [...(prod.variedades || []), nueva] };
         }
         return prod;
-      })
+      }),
     );
 
     setNuevaVariedadNombre("");
@@ -236,7 +236,7 @@ export default function App() {
 
   const totalGeneral = Object.values(carrito).reduce(
     (acc, item) => acc + item.totalItem,
-    0
+    0,
   );
 
   const ejecutarVaciarCarrito = () => {
@@ -245,15 +245,25 @@ export default function App() {
   };
 
   // Registrar cobro y persistir en el historial
-  const registrarCobro = () => {
-    const nuevaVenta = {
-      id: Date.now().toString(),
-      hora: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  const registrarCobro = async () => {
+    const payloadVenta = {
+      
       items: Object.values(carrito),
       total: totalGeneral,
     };
 
-    setVentasDia((prev) => [nuevaVenta, ...prev]);
+    const res = await fetch("http://localhost:4000/api/ventas",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payloadVenta)
+    });
+
+    if(!res.ok)throw new Error("Error al procesar la venta");
+//3 el backend devuelve la venta guardada (incluyendo el _id y createdAt de Mongoose)
+    const ventaGuardada = await res.json();
+
+
+    setVentasDia((prev) => [payloadVenta, ...prev]);
     setCarrito({});
     setConfirmarCompra(false);
   };
@@ -285,12 +295,12 @@ export default function App() {
               variedades: prod.variedades.map((v) =>
                 v.id === variedadSeleccionada.id
                   ? { ...v, img: nuevaImagenUrl }
-                  : v
+                  : v,
               ),
             };
           }
           return prod;
-        })
+        }),
       );
     };
 
@@ -301,339 +311,359 @@ export default function App() {
 
   return (
     <div className="container-fluid py-3">
- <div className="pantalla-principal row g-3">
-      {/* SECCIÓN IZQUIERDA: PRODUCTOS */}
-      <div className="seccion-productos">
-        <h2 className="titulo-seccion">Productos</h2>
+      <div className="pantalla-principal row g-3">
+        {/* SECCIÓN IZQUIERDA: PRODUCTOS */}
+        <div className="seccion-productos">
+          <h2 className="titulo-seccion">Productos</h2>
 
-        {/* Botonera Superior */}
-        <div className="gap-2 mb-3">
-          <button
-            type="button"
-            onClick={() => setMostrarModalNuevo(true)}
-            className="btn btn-info flex-grow-1 fw-bold text-white"
-          >
-            ➕ Agregar Producto
-          </button>
-          <button
-            type="button"
-            onClick={() => setMostrarHistorial(!mostrarHistorial)}
-            className={`btn fw-bold ${mostrarHistorial ? "btn-secondary" : "btn-outline-success"}`}
-          >
-            {mostrarHistorial ? "Ocultar Caja" : "📊 Consultar total del día"}
-          </button>
-        </div>
+          {/* Botonera Superior */}
+          <div className="gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setMostrarModalNuevo(true)}
+              className="btn btn-info flex-grow-1 fw-bold text-white"
+            >
+              ➕ Agregar Producto
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarHistorial(!mostrarHistorial)}
+              className={`btn fw-bold ${mostrarHistorial ? "btn-secondary" : "btn-outline-success"}`}
+            >
+              {mostrarHistorial ? "Ocultar Caja" : "📊 Consultar total del día"}
+            </button>
+          </div>
 
-        {/* Card de Historial Renderizada */}
-        {mostrarHistorial && (
-          <HistorialVentas
-            ventas={ventasDia}
-            onCerrar={() => setMostrarHistorial(false)}
-            onLimpiarHistorial={limpiarHistorialDia}
-          />
-        )}
+          {/* Card de Historial Renderizada */}
+          {mostrarHistorial && (
+            <HistorialVentas
+              ventas={ventasDia}
+              onCerrar={() => setMostrarHistorial(false)}
+              onLimpiarHistorial={limpiarHistorialDia}
+            />
+          )}
 
-        {/* Grilla de Cards */}
-        <div className="grilla">
-          {productos.map((producto) => {
-            const estaAbierta = categoriaAbierta === producto.id;
+          {/* Grilla de Cards */}
+          <div className="grilla">
+            {productos.map((producto) => {
+              const estaAbierta = categoriaAbierta === producto.id;
 
-            return (
-              <div key={producto.id} className="card">
-                <div className="encabezado-card">
-                  <span
-                    onClick={() => {
-                      setCategoriaAbierta(estaAbierta ? null : producto.id);
-                      setVariedadSeleccionada(null);
-                    }}
-                    className="nombre-producto-clickable"
-                  >
-                    {producto.nombre} {estaAbierta ? "▲" : "▼"}
-                  </span>
-
-                  <div className="d-flex align-items-center gap-1">
-                    <span style={{ fontSize: "12px", color: "#666" }}>$</span>
-                    <input
-                      type="number"
-                      value={producto.precio}
-                      onChange={(e) =>
-                        cambiarPrecioProducto(producto.id, Number(e.target.value))
-                      }
-                      className="input-precio"
-                      title="Editar precio base"
-                    />
-                    <button
-                      onClick={() =>
-                        setProductoAEliminar({
-                          id: producto.id,
-                          nombre: producto.nombre,
-                        })
-                      }
-                      className="btn btn-outline-danger btn-sm p-0 px-2 ms-1"
-                      title="Eliminar producto"
-                      style={{ fontSize: "12px", lineHeight: "1.5" }}
+              return (
+                <div key={producto._id||producto.nombre} className="card">
+                  <div className="encabezado-card">
+                    <span
+                      onClick={() => {
+                        setCategoriaAbierta(estaAbierta ? null : producto.id);
+                        setVariedadSeleccionada(null);
+                      }}
+                      className="nombre-producto-clickable"
                     >
-                      ✕
-                    </button>
-                  </div>
-                </div>
+                      {producto.nombre} {estaAbierta ? "▲" : "▼"}
+                    </span>
 
-                {/* Subvariedades desplegables */}
-                {estaAbierta && (
-                  <div className="desglose-variedades">
-                    <div className="lista-variedades">
-                      {producto.variedades &&
-                        producto.variedades.map((v) => {
-                          const precioVariedad = v.precio ?? producto.precio;
-                          const esSeleccionada = variedadSeleccionada?.id === v.id;
-
-                          return (
-                            <div
-                              key={v.id}
-                              onClick={() =>
-                                setVariedadSeleccionada({
-                                  ...v,
-                                  precio: precioVariedad,
-                                  producto,
-                                })
-                              }
-                              className="item-variedad"
-                              style={{
-                                backgroundColor: esSeleccionada ? "#e0f2fe" : "#fff",
-                                border: esSeleccionada
-                                  ? "1px solid #0288d1"
-                                  : "1px solid #e0e0e0",
-                              }}
-                            >
-                              <img src={v.img} alt={v.nombre} className="mini-img" />
-                              <span className="texto-variedad">{v.nombre}</span>
-
-                              <div
-                                className="ms-auto d-flex align-items-center gap-1"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <span style={{ fontSize: "11px", color: "#666" }}>$</span>
-                                <input
-                                  type="number"
-                                  value={precioVariedad}
-                                  onChange={(e) =>
-                                    cambiarPrecioVariedad(
-                                      producto.id,
-                                      v.id,
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  className="input-precio-variedad"
-                                  title="Editar precio variedad"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-
-                    <div className="form-nueva-variedad">
+                    <div className="d-flex align-items-center gap-1">
+                      <span style={{ fontSize: "12px", color: "#666" }}>$</span>
                       <input
-                        type="text"
-                        placeholder="Nueva variedad..."
-                        value={nuevaVariedadNombre}
-                        onChange={(e) => setNuevaVariedadNombre(e.target.value)}
-                        className="input-nueva-variedad"
+                        type="number"
+                        value={producto.precio}
+                        onChange={(e) =>
+                          cambiarPrecioProducto(
+                            producto.id,
+                            Number(e.target.value),
+                          )
+                        }
+                        className="input-precio"
+                        title="Editar precio base"
                       />
                       <button
-                        onClick={() => agregarNuevaVariedad(producto.id)}
-                        className="btn-agregar-variedad"
+                        onClick={() =>
+                          setProductoAEliminar({
+                            id: producto.id,
+                            nombre: producto.nombre,
+                          })
+                        }
+                        className="btn btn-outline-danger btn-sm p-0 px-2 ms-1"
+                        title="Eliminar producto"
+                        style={{ fontSize: "12px", lineHeight: "1.5" }}
                       >
-                        +
+                        ✕
                       </button>
                     </div>
                   </div>
-                )}
 
-                {/* Botonera de compra rápida */}
-                {producto.tipo === "dinero" ? (
-                  <div className="contenedor-multiplos">
+                  {/* Subvariedades desplegables */}
+                  {estaAbierta && (
+                    <div className="desglose-variedades">
+                      <div className="lista-variedades">
+                        {producto.variedades &&
+                          producto.variedades.map((v) => {
+                            const precioVariedad = v.precio ?? producto.precio;
+                            const esSeleccionada =
+                              variedadSeleccionada?.id === v.id;
+
+                            return (
+                              <div
+                                key={v.id}
+                                onClick={() =>
+                                  setVariedadSeleccionada({
+                                    ...v,
+                                    precio: precioVariedad,
+                                    producto,
+                                  })
+                                }
+                                className="item-variedad"
+                                style={{
+                                  backgroundColor: esSeleccionada
+                                    ? "#e0f2fe"
+                                    : "#fff",
+                                  border: esSeleccionada
+                                    ? "1px solid #0288d1"
+                                    : "1px solid #e0e0e0",
+                                }}
+                              >
+                                <img
+                                  src={v.img}
+                                  alt={v.nombre}
+                                  className="mini-img"
+                                />
+                                <span className="texto-variedad">
+                                  {v.nombre}
+                                </span>
+
+                                <div
+                                  className="ms-auto d-flex align-items-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span
+                                    style={{ fontSize: "11px", color: "#666" }}
+                                  >
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    value={precioVariedad}
+                                    onChange={(e) =>
+                                      cambiarPrecioVariedad(
+                                        producto.id,
+                                        v.id,
+                                        Number(e.target.value),
+                                      )
+                                    }
+                                    className="input-precio-variedad"
+                                    title="Editar precio variedad"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+
+                      <div className="form-nueva-variedad">
+                        <input
+                          type="text"
+                          placeholder="Nueva variedad..."
+                          value={nuevaVariedadNombre}
+                          onChange={(e) =>
+                            setNuevaVariedadNombre(e.target.value)
+                          }
+                          className="input-nueva-variedad"
+                        />
+                        <button
+                          onClick={() => agregarNuevaVariedad(producto.id)}
+                          className="btn-agregar-variedad"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Botonera de compra rápida */}
+                  {producto.tipo === "dinero" ? (
+                    <div className="contenedor-multiplos">
+                      <button
+                        onClick={() => agregarAlCarrito(producto, 50)}
+                        className="btn-multiplo"
+                      >
+                        +$50
+                      </button>
+                      <button
+                        onClick={() => agregarAlCarrito(producto, 100)}
+                        className="btn-multiplo"
+                      >
+                        +$100
+                      </button>
+                      <button
+                        onClick={() => agregarAlCarrito(producto, 500)}
+                        className="btn-multiplo"
+                      >
+                        +$500
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      onClick={() => agregarAlCarrito(producto, 50)}
-                      className="btn-multiplo"
+                      onClick={() =>
+                        agregarAlCarrito(producto, producto.precio)
+                      }
+                      className="btn-agregar-unidad"
                     >
-                      +$50
+                      +1 {producto.nombre} (${producto.precio})
                     </button>
-                    <button
-                      onClick={() => agregarAlCarrito(producto, 100)}
-                      className="btn-multiplo"
-                    >
-                      +$100
-                    </button>
-                    <button
-                      onClick={() => agregarAlCarrito(producto, 500)}
-                      className="btn-multiplo"
-                    >
-                      +$500
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => agregarAlCarrito(producto, producto.precio)}
-                    className="btn-agregar-unidad"
-                  >
-                    +1 {producto.nombre} (${producto.precio})
-                  </button>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* SECCIÓN CENTRAL: VISTA PREVIA Y FOTO */}
-      <div className="seccion-accion-rapida">
-        <input
-          id="input-camara"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: "none" }}
-          onChange={tomarFotoParaVariedad}
-        />
+        {/* SECCIÓN CENTRAL: VISTA PREVIA Y FOTO */}
+        <div className="seccion-accion-rapida">
+          <input
+            id="input-camara"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={tomarFotoParaVariedad}
+          />
 
-        <label htmlFor="input-camara" className="btn-camara">
-          📷 Tomar nueva foto
-        </label>
-        <h2 className="titulo-seccion">Variedad Seleccionada</h2>
-        {variedadSeleccionada ? (
-          <div className="contenedor-target">
-            <p className="subtitulo-click">
-              ¡Hacé clic en la foto para sumar 1 unidad!
-            </p>
-            <div
-              onClick={() =>
-                agregarAlCarrito(
-                  variedadSeleccionada.producto,
-                  variedadSeleccionada.precio,
-                  variedadSeleccionada.nombre
-                )
-              }
-              className="card-imagen-grande"
-            >
-              <img
-                src={variedadSeleccionada.img}
-                alt={variedadSeleccionada.nombre}
-                className="imagen-grande"
-              />
-              <span className="badge-precio">
-                +1 (${variedadSeleccionada.precio})
+          <label htmlFor="input-camara" className="btn-camara">
+            📷 Tomar nueva foto
+          </label>
+          <h2 className="titulo-seccion">Variedad Seleccionada</h2>
+          {variedadSeleccionada ? (
+            <div className="contenedor-target">
+              <p className="subtitulo-click">
+                ¡Hacé clic en la foto para sumar 1 unidad!
+              </p>
+              <div
+                onClick={() =>
+                  agregarAlCarrito(
+                    variedadSeleccionada.producto,
+                    variedadSeleccionada.precio,
+                    variedadSeleccionada.nombre,
+                  )
+                }
+                className="card-imagen-grande"
+              >
+                <img
+                  src={variedadSeleccionada.img}
+                  alt={variedadSeleccionada.nombre}
+                  className="imagen-grande"
+                />
+                <span className="badge-precio">
+                  +1 (${variedadSeleccionada.precio})
+                </span>
+              </div>
+              <h3 className="nombre-seleccionado">
+                {variedadSeleccionada.nombre}
+              </h3>
+              <span className="tag-categoria">
+                {variedadSeleccionada.producto.nombre}
               </span>
             </div>
-            <h3 className="nombre-seleccionado">
-              {variedadSeleccionada.nombre}
-            </h3>
-            <span className="tag-categoria">
-              {variedadSeleccionada.producto.nombre}
-            </span>
-          </div>
-        ) : (
-          <p className="texto-vacio">
-            Seleccioná una variedad de la lista para sumar por foto.
-          </p>
-        )}
-      </div>
-
-      {/* SECCIÓN DERECHA: RESUMEN DE COMPRA */}
-      <div className="seccion-resumen">
-        <h2 className="titulo-seccion">Venta Actual</h2>
-        <div className="lista-carrito">
-          {carritoVacio ? (
-            <p className="texto-vacio">No hay productos seleccionados</p>
           ) : (
-            Object.entries(carrito).map(([id, item]) => (
-              <div key={id} className="item-carrito">
-                <span>
-                  {item.nombre} {item.cantidad > 0 && `(x${item.cantidad})`}
-                </span>
-                <strong>${item.totalItem}</strong>
-              </div>
-            ))
+            <p className="texto-vacio">
+              Seleccioná una variedad de la lista para sumar por foto.
+            </p>
           )}
         </div>
 
-        <div className="pie-resumen">
-          <div className="contenedor-total">
-            <span>TOTAL:</span>
-            <span className="monto-total">${totalGeneral}</span>
+        {/* SECCIÓN DERECHA: RESUMEN DE COMPRA */}
+        <div className="seccion-resumen">
+          <h2 className="titulo-seccion">Venta Actual</h2>
+          <div className="lista-carrito">
+            {carritoVacio ? (
+              <p className="texto-vacio">No hay productos seleccionados</p>
+            ) : (
+              Object.entries(carrito).map(([id, item]) => (
+                <div key={id} className="item-carrito">
+                  <span>
+                    {item.nombre} {item.cantidad > 0 && `(x${item.cantidad})`}
+                  </span>
+                  <strong>${item.totalItem}</strong>
+                </div>
+              ))
+            )}
           </div>
 
-          <div className="contenedor-botones">
-            <button
-              onClick={() => {
-                if (!carritoVacio) setConfirmarVaciarCarrito(true);
-              }}
-              className="btn-accion btn-borrar"
-              style={{
-                opacity: carritoVacio ? 0.5 : 1,
-                cursor: carritoVacio ? "not-allowed" : "pointer",
-              }}
-              disabled={carritoVacio}
-            >
-              BORRAR
-            </button>
+          <div className="pie-resumen">
+            <div className="contenedor-total">
+              <span>TOTAL:</span>
+              <span className="monto-total">${totalGeneral}</span>
+            </div>
 
-            <button
-              onClick={() => setConfirmarCompra(true)}
-              className="btn-accion btn-cobrar"
-              style={{
-                opacity: carritoVacio ? 0.5 : 1,
-                cursor: carritoVacio ? "not-allowed" : "pointer",
-              }}
-              disabled={carritoVacio}
-            >
-              COBRAR
-            </button>
+            <div className="contenedor-botones">
+              <button
+                onClick={() => {
+                  if (!carritoVacio) setConfirmarVaciarCarrito(true);
+                }}
+                className="btn-accion btn-borrar"
+                style={{
+                  opacity: carritoVacio ? 0.5 : 1,
+                  cursor: carritoVacio ? "not-allowed" : "pointer",
+                }}
+                disabled={carritoVacio}
+              >
+                BORRAR
+              </button>
+
+              <button
+                onClick={() => setConfirmarCompra(true)}
+                className="btn-accion btn-cobrar"
+                style={{
+                  opacity: carritoVacio ? 0.5 : 1,
+                  cursor: carritoVacio ? "not-allowed" : "pointer",
+                }}
+                disabled={carritoVacio}
+              >
+                COBRAR
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* MODAL 1: Crear Nuevo Producto */}
+        <ModalNuevoProducto
+          isOpen={mostrarModalNuevo}
+          onClose={() => setMostrarModalNuevo(false)}
+          onAgregarProducto={handleAgregarProducto}
+        />
+
+        {/* MODAL 2: Confirmar Eliminación */}
+        <ModalConfirmacion
+          isOpen={!!productoAEliminar}
+          titulo="Eliminar Producto"
+          mensaje={`¿Estás seguro de que querés eliminar "${productoAEliminar?.nombre}" del catálogo?`}
+          textoConfirmar="Eliminar"
+          colorBoton="btn-danger"
+          onConfirmar={confirmarEliminacionProducto}
+          onCancelar={() => setProductoAEliminar(null)}
+        />
+
+        {/* MODAL 3: Confirmar Borrado de Carrito */}
+        <ModalConfirmacion
+          isOpen={confirmarVaciarCarrito}
+          titulo="Vaciar Carrito"
+          mensaje="¿Estás seguro de que querés borrar todo el pedido actual?"
+          textoConfirmar="Vaciar"
+          colorBoton="btn-danger"
+          onConfirmar={ejecutarVaciarCarrito}
+          onCancelar={() => setConfirmarVaciarCarrito(false)}
+        />
+
+        {/* MODAL 4: Confirmar Cobro y Registro en Caja */}
+        <ModalConfirmacion
+          isOpen={confirmarCompra}
+          titulo="Confirmar Venta"
+          mensaje={`¿Deseas registrar el cobro por un total de $${totalGeneral}?`}
+          textoConfirmar="Cobrar"
+          colorBoton="btn-success"
+          onConfirmar={registrarCobro}
+          onCancelar={() => setConfirmarCompra(false)}
+        />
       </div>
-
-      {/* MODAL 1: Crear Nuevo Producto */}
-      <ModalNuevoProducto
-        isOpen={mostrarModalNuevo}
-        onClose={() => setMostrarModalNuevo(false)}
-        onAgregarProducto={handleAgregarProducto}
-      />
-
-      {/* MODAL 2: Confirmar Eliminación */}
-      <ModalConfirmacion
-        isOpen={!!productoAEliminar}
-        titulo="Eliminar Producto"
-        mensaje={`¿Estás seguro de que querés eliminar "${productoAEliminar?.nombre}" del catálogo?`}
-        textoConfirmar="Eliminar"
-        colorBoton="btn-danger"
-        onConfirmar={confirmarEliminacionProducto}
-        onCancelar={() => setProductoAEliminar(null)}
-      />
-
-      {/* MODAL 3: Confirmar Borrado de Carrito */}
-      <ModalConfirmacion
-        isOpen={confirmarVaciarCarrito}
-        titulo="Vaciar Carrito"
-        mensaje="¿Estás seguro de que querés borrar todo el pedido actual?"
-        textoConfirmar="Vaciar"
-        colorBoton="btn-danger"
-        onConfirmar={ejecutarVaciarCarrito}
-        onCancelar={() => setConfirmarVaciarCarrito(false)}
-      />
-
-      {/* MODAL 4: Confirmar Cobro y Registro en Caja */}
-      <ModalConfirmacion
-        isOpen={confirmarCompra}
-        titulo="Confirmar Venta"
-        mensaje={`¿Deseas registrar el cobro por un total de $${totalGeneral}?`}
-        textoConfirmar="Cobrar"
-        colorBoton="btn-success"
-        onConfirmar={registrarCobro}
-        onCancelar={() => setConfirmarCompra(false)}
-      />
+      <IAgente />
     </div>
-    </div>
-   
   );
 }
