@@ -173,7 +173,7 @@ console.log(productosConId)
 
     if(!res.ok)throw new Error("Error al procesar la venta");
 //3 el backend devuelve la venta guardada (incluyendo el _id y createdAt de Mongoose)
-    const ventaGuardada = await res.json();
+   
 
 
     setVentasDia((prev) => [payloadVenta, ...prev]);

@@ -88,4 +88,4 @@ const PRODUCTOS_INICIALES = [
   },
 ]
 
-export default PRODUCTOS_INICIALES;
+export default PRODUCTOS_INICIALES;// Alternativa segura para HTTP local sin HTTPS
